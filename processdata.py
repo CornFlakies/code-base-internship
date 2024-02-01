@@ -471,6 +471,12 @@ class ProcessData:
             file_path = os.path.join(output_folder, self.image_names[i])
             np.save(file_path, img)
 
+    def segment_images(self, input_image, background_image, output_folder):
+        '''
+        Function used to segment particles from the 
+        '''
+        return None
+
     def __generate_chunk_data(self, chunk_amount, doPad = True):
         '''
         Helper function used to generate chunk data for the run
