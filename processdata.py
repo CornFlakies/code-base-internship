@@ -39,7 +39,6 @@ class ProcessData:
         # Finding the amount of frames
         self.frames = len(self.image_paths)
 
-
     def compute_power_spectrum(self, output_folder, chunk_amount):          
         '''
         Function loads in the raw data and computes the power spectra
@@ -397,25 +396,33 @@ class ProcessData:
         plt.grid()
         plt.show()
 
-    def plot_dispersion_rel(self, h0, conver_factor):
+    def plot_dispersion_rel(self, h0, conver_factor, fps):
         '''
         Plot the dispersion relation using as well as the analytical gravity capillary solution
+
+        - h0            : water height in meter   cm      
+        - conver_factor : pixel conversion factor cm/px  
+        - fps           : frames per second       frames/s
+
         '''
         from numpy.fft import rfftfreq
+        
+        h0 *= 1E-2
+        conver_factor *= 1E-2
 
         kana  = np.linspace(0, 1000, 2000)
         omega = np.sqrt(HelperFunctions.gravcap_dispersion_sq(kana, h0))  
     
         for image in self.image_paths:
             img = np.load(image)
-            omega_space = rfftfreq(np.size(img, axis=0) * 2, d=1/125) * 2 * np.pi
+            omega_space = 2 * np.pi * rfftfreq(np.size(img, axis=0) * 2, d=1/fps)
             kspace = 2 * np.pi * rfftfreq(np.size(img, axis=1) * 2 + 1, d=conver_factor) 
         
             plt.figure()
             plt.plot(omega, kana, '--', color='black', label='analytical dispersion') 
             plt.pcolor(omega_space, kspace[1:], np.log(img[:, 1:].T))
             plt.xlabel('$\omega (rad/s)$')
-            plt.ylabel('$k (rad/m)$')
+            plt.ylabel('$k (rad/cm)$')
             plt.legend()
             plt.colorbar()
         plt.show() 

@@ -31,6 +31,7 @@ if __name__ == '__main__':
     def update_plot(frame_number, image_paths, plot):
         hp.print(f'processing frame {frame_number}', 'o')
         img = np.load(image_paths[frame_number])[padding:-padding, padding:-padding]
+        
         plot[0].remove()
         plot[0] = ax.plot_surface(x, y, img - np.mean(img), cmap='magma')
 

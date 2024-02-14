@@ -16,8 +16,8 @@ if __name__ == '__main__':
     '''
     #Chunks hardcoded at 4
     chunks = 4
-    rows = 995
-    cols = 995
+    rows = 1024
+    cols = 1024
 
     # Load in image paths
     argparser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
