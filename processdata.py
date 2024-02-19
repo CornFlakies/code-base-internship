@@ -1,14 +1,14 @@
-from matplotlib import axis
-import numpy as np
 import os
+import cv2
 import time
-from scipy.ndimage import gaussian_filter1d
+import numpy as np
 import skimage as sk
 from typing import List
-from dataclasses import dataclass
+from matplotlib import axis
+from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt 
+from dataclasses import dataclass
 from scipy.signal.windows import hann
-
 from helper_functions import HelperFunctions
 
 @dataclass
@@ -172,45 +172,85 @@ class ProcessData:
         output_folder_averages = os.path.join(output_folder, foldername, '')
         HelperFunctions.create_output_folder(output_folder_averages)
 
-        self.image_size = np.size(np.load(self.image_paths[0]), axis=0)
-        chunks = self.__generate_chunk_data(chunk_amount, doPad = False)
-        middle_chunks = [5, 6, 9, 10] # ASSUMING 4X4 CHUNKS DON'T FORGET 
+        shape = np.load(self.image_paths[0]).shape
+        box_size = 300 #px
+        ctr_idx = [[(shape[0]- box_size) // 2, (shape[0] + box_size) // 2],[(shape[1] - box_size) // 2, (shape[1] + box_size) // 2]]
+        # Generate a chunk containing the center of the image 
+        chunk = np.zeros((len(self.image_paths), box_size, box_size))
+        for i, img in enumerate(self.image_paths):
+            image = np.load(img)
+            image = image[ctr_idx[0][0]:ctr_idx[0][1], ctr_idx[1][0]:ctr_idx[1][1]]
+            chunk[i] = image
 
-        start_time_tot = time.time()
-        window = hann(self.frames) 
-        for nchunk in middle_chunks:
-            # Finding chunk location
-            self.nx = chunks.xidx[nchunk % chunks.chunk]
-            self.ny = chunks.yidx[nchunk // chunks.chunk]
-            
-            # Timing run and loading in the chunk as a (frames, px, px) array
-            print(f'chunk {nchunk + 1}/{chunks.chunk**2}')
-            start_time_chunk = time.time()  
-            img_chunk = self.__load_chunk(chunks)
-            
-            # Computing ffts
-            proc_img_chunk = np.zeros((self.frames // 2 + 1, chunks.chunk_length_px, chunks.chunk_length_px))
-            for ii in range(np.size(img_chunk, axis=1)):
-                for jj in range(np.size(img_chunk, axis=2)):
-                    proc_img_chunk[:, ii, jj] = HelperFunctions.process_kspace_fft(img_chunk[:, ii, jj], window)
-
-            filename = 'dispersion_' + str(nchunk + 1).zfill(self.FILL) + '.npy' 
-            file_destination = os.path.join(output_folder_chunks, filename)
-            np.save(file_destination, proc_img_chunk)
-            print(f'  chunk done in {int(time.time() - start_time_chunk)} seconds ...') 
-        print('done in %s seconds' % (int(time.time() - start_time_tot)))
+        # Spatially fourier transform the image
+        chunk_fft = np.zeros((np.size(chunk, axis = 0) // 2 + 1, chunk.shape[1], chunk.shape[2]))
+        height, width = chunk[0].shape
+        pol_img = np.zeros((len(chunk_fft), box_size // 2))
+        for ii in range(np.size(chunk, axis=1)):
+            for jj in range (np.size(chunk, axis=2)):
+                chunk_fft[:, ii, jj] = HelperFunctions.process_kspace_fft(chunk[:, ii, jj])
         
-        # Build slices
-        print('converting chunks to slices ...')
-        start_time_tot = time.time()
-        self.convert_chunks_to_slices(output_folder_chunks, output_folder_slices)
-        print('done in %s seconds' % (int(time.time() - start_time_tot)))
+        for i, slice in enumerate(chunk_fft): 
+            # Get angular average
+            center = (width // 2, height // 2)
+            value = np.sqrt((center[0]**2 + center[1]**2) / 2)
+            transformed_image = cv2.linearPolar(slice, center, value, cv2.WARP_FILL_OUTLIERS)
+            pol_img[i] = np.mean(transformed_image[:, ::2], axis=0)            
+            print(pol_img.shape)
 
-        # Build build averages 
-        print('building the averages ...')
-        start_time_tot = time.time()
-        self.build_averages(output_folder_slices, output_folder_averages)
-        print('done in %s seconds' % (int(time.time() - start_time_tot)))
+        # Get kx and ky slice
+        hor_img_slice = chunk_fft[:, box_size // 2, box_size // 2:]
+        ver_img_slice = chunk_fft[:, box_size // 2:, box_size // 2]
+         
+        # Save the angular avgs and the chunk
+        filename = 'angular_avg.npy'
+        np.save(os.path.join(output_folder_averages, filename), pol_img[1:])
+        filename = 'kx_slice.npy'
+        np.save(os.path.join(output_folder_averages, filename), hor_img_slice[1:])
+        filename = 'ky_slice.npy'
+        np.save(os.path.join(output_folder_averages, filename), ver_img_slice[1:]) 
+        filename = 'chunk'
+        np.save(os.path.join(output_folder_chunks, filename), chunk)
+
+        #self.image_size = np.size(np.load(self.image_paths[0]), axis=0)
+        #chunks = self.__generate_chunk_data(chunk_amount, doPad = False)
+        #middle_chunks = [5, 6, 9, 10] # ASSUMING 4X4 CHUNKS DON'T FORGET 
+
+        #start_time_tot = time.time()
+        #window = hann(self.frames) 
+        #for nchunk in middle_chunks:
+        #    # Finding chunk location
+        #    self.nx = chunks.xidx[nchunk % chunks.chunk]
+        #    self.ny = chunks.yidx[nchunk // chunks.chunk]
+        #    
+        #    # Timing run and loading in the chunk as a (frames, px, px) array
+        #    print(f'chunk {nchunk + 1}/{chunks.chunk**2}')
+        #    start_time_chunk = time.time()  
+        #    img_chunk = self.__load_chunk(chunks)
+        #    
+        #    # Computing ffts
+        #    proc_img_chunk = np.zeros((self.frames // 2 + 1, chunks.chunk_length_px, chunks.chunk_length_px))
+        #    for ii in range(np.size(img_chunk, axis=1)):
+        #        for jj in range(np.size(img_chunk, axis=2)):
+        #            proc_img_chunk[:, ii, jj] = HelperFunctions.process_kspace_fft(img_chunk[:, ii, jj], window)
+
+        #    filename = 'dispersion_' + str(nchunk + 1).zfill(self.FILL) + '.npy' 
+        #    file_destination = os.path.join(output_folder_chunks, filename)
+        #    np.save(file_destination, proc_img_chunk)
+        #    print(f'  chunk done in {int(time.time() - start_time_chunk)} seconds ...') 
+        #print('done in %s seconds' % (int(time.time() - start_time_tot)))
+        
+        ## Build slices
+        #print('converting chunks to slices ...')
+        #start_time_tot = time.time()
+        #self.convert_chunks_to_slices(output_folder_chunks, output_folder_slices)
+        #print('done in %s seconds' % (int(time.time() - start_time_tot)))
+
+        ## Build build averages 
+        #print('building the averages ...')
+        #start_time_tot = time.time()
+        #self.build_averages(output_folder_slices, output_folder_averages)
+        #print('done in %s seconds' % (int(time.time() - start_time_tot)))
     
     def compute_spatial_fft(self, output_folder, chunk_amount):
         '''
@@ -405,26 +445,30 @@ class ProcessData:
         - fps           : frames per second       frames/s
 
         '''
-        from numpy.fft import rfftfreq
+        from numpy.fft import rfftfreq, fftfreq
         
-        h0 *= 1E-2
-        conver_factor *= 1E-2
+        h0 *= 1E-2             # m
+        conver_factor *= 1E-2  # m/px
 
-        kana  = np.linspace(0, 1000, 2000)
+        kana  = np.linspace(0, 1000, 500)
         omega = np.sqrt(HelperFunctions.gravcap_dispersion_sq(kana, h0))  
-    
+        #omega_g = np.sqrt(HelperFunctions.grav_dispersion_sq(kana, h0))
+        #omega_c = np.sqrt(HelperFunctions.cap_dispersion_sq(kana, h0))
+
         for image in self.image_paths:
             img = np.load(image)
-            omega_space = 2 * np.pi * rfftfreq(np.size(img, axis=0) * 2, d=1/fps)
-            kspace = 2 * np.pi * rfftfreq(np.size(img, axis=1) * 2 + 1, d=conver_factor) 
-        
+            print(img.shape)
+            omega_space = 2 * np.pi * rfftfreq(np.size(img, axis=0), d=1/fps)
+            kspace = 2 * np.pi * rfftfreq(np.size(img, axis=1) * 2 - 1, d=conver_factor) 
             plt.figure()
             plt.plot(omega, kana, '--', color='black', label='analytical dispersion') 
-            plt.pcolor(omega_space, kspace[1:], np.log(img[:, 1:].T))
+            #plt.plot(omega_g, kana, color='blue', label='grav')
+            #plt.plot(omega_c, kana, color='red', label='cap')
+            plt.pcolor(omega_space, kspace[1:], np.log(img[:, 1:].T)) # Starting from index 1 to ignore the offset component
             plt.xlabel('$\omega (rad/s)$')
-            plt.ylabel('$k (rad/cm)$')
+            plt.ylabel('$k (rad/m)$')
             plt.legend()
-            plt.colorbar()
+            #plt.colorbar()
         plt.show() 
 
     def plot_slices(self):

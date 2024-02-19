@@ -50,7 +50,7 @@ class HelperFunctions:
    
         # Do the fourier transform
         #ADD discarding phase information for now
-        img_fft = np.abs(rfft(fft_profile))
+        img_fft = rfft(fft_profile)
         
         return img_fft 
 
@@ -122,14 +122,23 @@ class HelperFunctions:
         
         return synth_img
 
+
+    @staticmethod 
+    def grav_dispersion_sq(k, h0, g = 9.81):
+        return g * k * np.tanh(k * h0)
+
     @staticmethod
-    def gravcap_dispersion_sq(k, h0, rho = 988, g = 9.81, gamma = 7.28E-2):
+    def cap_dispersion_sq(k, h0, gamma = 7.18E-2, rho = 998):
+        return gamma * k**3 / rho * np.tanh(k * h0)
+
+    @staticmethod
+    def gravcap_dispersion_sq(k, h0, rho = 998, g = 9.81, gamma = 0.072):
         '''
-        Returns omega**2 associated with provided k-values, and according to 
-        the gravity capillary dispersion relation
+        Returns omega**2 associated with provided k-values, according to 
+        the complete gravity capillary dispersion relation
         '''
         return g * k * np.tanh(k * h0) * (1 + gamma * k**2 / (rho * g))
-
+    
     @staticmethod
     def crop_image(img, nx1, nx2, ny1, ny2):
         return img[nx1:nx2, ny1:ny2]
