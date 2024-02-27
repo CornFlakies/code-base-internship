@@ -14,7 +14,7 @@ images = np.sort(os.listdir(args.input_folder))
 image_paths = []
 for entry in images:
     split_filename = entry.split('.')
-    if (split_filename[-1] == 'tiff'):
+    if ((split_filename[-1] == 'tiff') | (split_filename[-1] == 'tif')):
         image_paths.append(os.path.join(args.input_folder, entry))
 print(f'loaded {len(image_paths)} images ...')
 # Initialize variables to keep track of the current image index

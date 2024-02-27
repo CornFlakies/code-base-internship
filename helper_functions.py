@@ -17,21 +17,20 @@ class Chunks:
 
 class HelperFunctions:
     @staticmethod
-    def process_2d_fft(surface_profile, window = None):
+    def process_2d_fft(surface_profile, window = None): 
         # Subtract the mean
         surface_profile -= np.mean(surface_profile)
         
         # Apply a window
         if window is not None:
             surface_profile *= window        
-
+        
         # Do the fourier transformed
-        #ADD discarding phase information for now
-        img_fft = fft2(surface_profile)
+        img_fft = np.abs(fft2(surface_profile))
         
         # Shift the k-space to set the origin in the center
-        img_fft = np.abs(fftshift(img_fft))
-
+        img_fft = fftshift(img_fft)
+        
         return img_fft
 
     @staticmethod
@@ -42,17 +41,16 @@ class HelperFunctions:
         '''
         # Filter signal
         fft_profile -= np.mean(fft_profile)
-    
+        
         # Create dataset which is multiplied by a Hann window and fourier transform
         fft_profile = fft_profile.astype(np.float64)
         if window is not None:
-            fft_profile *= window
-   
+            fft_profile *= window 
+    
         # Do the fourier transform
-        #ADD discarding phase information for now
-        img_fft = rfft(fft_profile)
-        
-        return img_fft 
+        img_fft = np.abs(rfft(fft_profile)) 
+         
+        return img_fft
 
     @staticmethod
     def process_temporal_fft(surface_profile, window = None): 

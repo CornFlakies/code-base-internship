@@ -164,9 +164,9 @@ class ProcessData:
         output_folder_chunks = os.path.join(output_folder, foldername, '')
         HelperFunctions.create_output_folder(output_folder_chunks)
         
-        foldername = 'slices'
-        output_folder_slices = os.path.join(output_folder, foldername, '')
-        HelperFunctions.create_output_folder(output_folder_slices)
+        #foldername = 'slices'
+        #output_folder_slices = os.path.join(output_folder, foldername, '')
+        #HelperFunctions.create_output_folder(output_folder_slices)
         
         foldername = 'averages'
         output_folder_averages = os.path.join(output_folder, foldername, '')
@@ -184,31 +184,34 @@ class ProcessData:
 
         # Spatially fourier transform the image
         chunk_fft = np.zeros((np.size(chunk, axis = 0) // 2 + 1, chunk.shape[1], chunk.shape[2]))
-        height, width = chunk[0].shape
-        pol_img = np.zeros((len(chunk_fft), box_size // 2))
         for ii in range(np.size(chunk, axis=1)):
             for jj in range (np.size(chunk, axis=2)):
                 chunk_fft[:, ii, jj] = HelperFunctions.process_kspace_fft(chunk[:, ii, jj])
         
+        height, width = chunk[0].shape
+        pol_img = np.zeros((len(chunk_fft), box_size // 2))
         for i, slice in enumerate(chunk_fft): 
             # Get angular average
             center = (width // 2, height // 2)
             value = np.sqrt((center[0]**2 + center[1]**2) / 2)
             transformed_image = cv2.linearPolar(slice, center, value, cv2.WARP_FILL_OUTLIERS)
-            pol_img[i] = np.mean(transformed_image[:, ::2], axis=0)            
-            print(pol_img.shape)
+            pol_img[i] = np.mean(transformed_image[:, ::2], axis=0)                       
+            
 
         # Get kx and ky slice
         hor_img_slice = chunk_fft[:, box_size // 2, box_size // 2:]
         ver_img_slice = chunk_fft[:, box_size // 2:, box_size // 2]
-         
+        
+        print(pol_img.shape)
+        print(hor_img_slice.shape)
+    
         # Save the angular avgs and the chunk
         filename = 'angular_avg.npy'
-        np.save(os.path.join(output_folder_averages, filename), pol_img[1:])
+        np.save(os.path.join(output_folder_averages, filename), pol_img)
         filename = 'kx_slice.npy'
-        np.save(os.path.join(output_folder_averages, filename), hor_img_slice[1:])
+        np.save(os.path.join(output_folder_averages, filename), hor_img_slice)
         filename = 'ky_slice.npy'
-        np.save(os.path.join(output_folder_averages, filename), ver_img_slice[1:]) 
+        np.save(os.path.join(output_folder_averages, filename), ver_img_slice) 
         filename = 'chunk'
         np.save(os.path.join(output_folder_chunks, filename), chunk)
 
@@ -269,7 +272,8 @@ class ProcessData:
             img = np.load(image)[chunks.padding:-chunks.padding, chunks.padding:-chunks.padding]
             img = HelperFunctions.gen_synthetic_img(img)
             img_fft = HelperFunctions.process_2d_fft(img, window_2d)
-            img_fft = img_fft[padd:-padd, padd:-padd]
+            img_fft = img_fft[padd:-padd, padd:-padd]             
+
             np.save(os.path.join(output_folder, filename), img_fft)
 
             if (i % int(self.frames / 10) == 0):
@@ -353,7 +357,7 @@ class ProcessData:
         from scipy.ndimage import gaussian_filter
         HelperFunctions.create_output_folder(output_folder)
 
-        padding = 50
+        padding = 25
         smoothing = len(self.image_paths) // 20
         std = 0
         ii = 0
@@ -425,14 +429,14 @@ class ProcessData:
         plt.loglog(freq, power, '.-')
         plt.loglog(freq[lower[0]:upper[0]], power_law(height[0], freq[lower[0]:upper[0]], -5), '-', label='$\omega^{-5}$', color='red')
         plt.axvline(x = int(4 * 2 * np.pi), linestyle='--', color='black', label='$\omega_{max} = 4\cdot 2\pi\, (rad\, Hz)$')
-        plt.title('Welch PSD $f=4\, Hz$, $A=20\, mm$, $h_0 = 3\, cm$')
+        plt.title('Welch PSD $f=4\, Hz$, $A=20\, mm$, $h_0 = 5\, cm$')
         plt.xlabel('$\omega\, (rad\, Hz)$')
         plt.ylabel('$PSD_{\mathcal{W}}\, [h(t)]$')
         plt.legend()
         plt.grid()
 
         plt.figure()
-        plt.loglog(freq, power / freq**(-4), '.-')
+        plt.loglog(freq, power / freq**(-6), '.-')
         plt.grid()
         plt.show()
 
@@ -445,30 +449,40 @@ class ProcessData:
         - fps           : frames per second       frames/s
 
         '''
-        from numpy.fft import rfftfreq, fftfreq
+        from numpy.fft import rfftfreq
         
         h0 *= 1E-2             # m
         conver_factor *= 1E-2  # m/px
 
-        kana  = np.linspace(0, 1000, 500)
+        kana  = np.linspace(10, 1000, 500)
         omega = np.sqrt(HelperFunctions.gravcap_dispersion_sq(kana, h0))  
-        #omega_g = np.sqrt(HelperFunctions.grav_dispersion_sq(kana, h0))
-        #omega_c = np.sqrt(HelperFunctions.cap_dispersion_sq(kana, h0))
 
-        for image in self.image_paths:
+        def power_law(A, x, p):
+            return A * (x/x[0])**(p)
+
+        for image in self.image_paths[:1]:
             img = np.load(image)
-            print(img.shape)
-            omega_space = 2 * np.pi * rfftfreq(np.size(img, axis=0), d=1/fps)
-            kspace = 2 * np.pi * rfftfreq(np.size(img, axis=1) * 2 - 1, d=conver_factor) 
+            omegaspace = 2 * np.pi * rfftfreq(np.size(img, axis=0) * 2, d=1/fps)
+            kspace = np.pi * rfftfreq(np.size(img, axis=1) * 2, d=conver_factor) 
+
+            E_k = np.sum(img, axis=0) / len(img)
+            height = 140000
+            start = 2760
+            finish = 5500
+            Ekana = np.linspace(start, finish, 100)
+
+            plt.figure()
+            plt.loglog(kspace[1:], E_k**2, '.-')
+            plt.loglog(Ekana, power_law(height, Ekana, -5/2))
+            plt.grid()
+       
             plt.figure()
             plt.plot(omega, kana, '--', color='black', label='analytical dispersion') 
-            #plt.plot(omega_g, kana, color='blue', label='grav')
-            #plt.plot(omega_c, kana, color='red', label='cap')
-            plt.pcolor(omega_space, kspace[1:], np.log(img[:, 1:].T)) # Starting from index 1 to ignore the offset component
+            plt.pcolor(omegaspace[:], kspace[1:], np.log(img[:, 1:].T), vmin=6, vmax=14) 
             plt.xlabel('$\omega (rad/s)$')
             plt.ylabel('$k (rad/m)$')
             plt.legend()
-            #plt.colorbar()
+            plt.colorbar()
         plt.show() 
 
     def plot_slices(self):
@@ -538,7 +552,7 @@ class ProcessData:
         else:
             # Create padding around the dataset to ignore weird edge effects
             if doPad is True:
-                padding = chunk_amount * 4 
+                padding = 10 
             else:
                 padding = 0
 

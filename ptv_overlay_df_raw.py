@@ -13,7 +13,7 @@ argparser.add_argument('input_folder_rawimg', type=str)
 argparser.add_argument('input_file_df', type=str)
 args = argparser.parse_args()
 
-raw_img_paths, _ = hp.load_images(args.input_folder_rawimg)
+raw_img_paths, _ = hp.load_images(args.input_folder_rawimg, 'tif')
 
 df = pd.read_pickle(args.input_file_df)
 Ntray = int(df.shape[1]//2)
@@ -29,7 +29,8 @@ for i, img in enumerate(raw_img_paths[90:]):
         plt.plot(x[i], y[i], 'o', markersize=4, color='r', fillstyle=None)
         plt.gca().invert_yaxis()
 
-    image = np.load(img)    
+    #image = np.load(img)    
+    image = sk.io.imread(img)
     plt.imshow(image)
     plt.show()
 
