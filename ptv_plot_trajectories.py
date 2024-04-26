@@ -12,6 +12,7 @@ args = argparser.parse_args()
 
 df = pd.read_pickle(args.input_file)
 Ntray = int(df.shape[1]//2)
+print(Ntray)
 
 #plt.title(‘Num. tray = {}‘.format(Ntray))
 for n in range(Ntray):
@@ -24,4 +25,5 @@ for n in range(Ntray):
     plt.gca().invert_yaxis()
     #plt.plot(x, y, ‘.-’, markersize=2, color=‘C{}’.format(m%9))
     plt.grid(True)
+
 plt.show()

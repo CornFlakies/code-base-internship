@@ -8,7 +8,7 @@ from os.path import dirname, join
 from helper_functions import HelperFunctions as hp
 
 #--------------------------------------------
-def generar_dataframe_filtrado(folderDFs, length_threshold=10, print_progress = True):
+def generar_dataframe_filtrado(folderDFs, length_threshold=1, print_progress = True):
         """
         Genera un gran dataframe filtrado en longitud de trayectorias.
         """
@@ -16,7 +16,7 @@ def generar_dataframe_filtrado(folderDFs, length_threshold=10, print_progress = 
         # read DFs and IMs file list
         files_DFs = sorted(glob.glob(folderDFs + 'DF_X_*_*_*.out'))
         ID = files_DFs[0].split('/')[-1][:-11]
-
+        
         # pandas append and/or concat are slow 
         # so we create the output DF once 
     
@@ -31,7 +31,7 @@ def generar_dataframe_filtrado(folderDFs, length_threshold=10, print_progress = 
                 cond = (nframes > length_threshold)
                 listado_ind.append(df.columns[cond])
                 particle_names.extend(df.columns[cond].values) 
-    
+
         # create BIG dataframe with right columns (particle_names)
         dfout = pd.DataFrame(columns=particle_names, index=df.index, dtype=float)
     
@@ -40,7 +40,8 @@ def generar_dataframe_filtrado(folderDFs, length_threshold=10, print_progress = 
                 if listado_ind[n].empty is not True:
                         df = pd.read_pickle((files_DFs[n]))
                         dfout.loc[:, listado_ind[n].values] = df.loc[:,listado_ind[n].values]
-    
+        
+        print(dfout)
         return dfout, ID
 
 #--------------------------------------------
@@ -55,6 +56,6 @@ if __name__ == "__main__":
     dirname="combined_"
     output_file = os.path.join(args.input_folder, dirname)
      
-    Lmin = 1000
+    Lmin = 750
     DF, ID  = generar_dataframe_filtrado(args.input_folder, length_threshold = Lmin, print_progress = True)
     DF.to_pickle(output_file + ID + '.out') 

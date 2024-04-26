@@ -84,7 +84,7 @@ class HelperFunctions:
     def gen_synthetic_img(img):
         '''
         Generate a synthetic image to prepare for the 2d spatial fourier transform
-        the synthetic image adds copies of the provided image with a padding one fourth the image size
+        the synthetic image adds copies of the provided image with a padding one fourth the qmage size
         '''
         img_size = np.size(img, axis=0)
         synth_size = int(1.5 * img_size)
@@ -130,7 +130,7 @@ class HelperFunctions:
         return gamma * k**3 / rho * np.tanh(k * h0)
 
     @staticmethod
-    def gravcap_dispersion_sq(k, h0, rho = 998, g = 9.81, gamma = 0.072):
+    def gravcap_dispersion_sq(k, h0, rho = 998, g = 9.81, gamma = 0.07):
         '''
         Returns omega**2 associated with provided k-values, according to 
         the complete gravity capillary dispersion relation
@@ -150,7 +150,11 @@ class HelperFunctions:
         elif shape[1] > shape[0]:
             return img[:, croplen:-croplen]
         else:
-            raise Exception('image is already square') 
+            return img 
+
+    @staticmethod
+    def load_folders(input_folder):
+        return [x[0] for x in os.walk(input_folder)][1:]
 
     @staticmethod
     def load_images(input_folder, header='npy'):
@@ -186,7 +190,7 @@ class HelperFunctions:
             raise Exception(f'Directory {output_folder} already exists, and contains files, check that you do not overwrite anything!')
         else:
             print(Warning(f'Directory {output_folder} already exists, but does not contain files, so nothing will get overwritten, continuing ..'))
-
+        
     @staticmethod
     def print(message, mode = 'n'):
         '''

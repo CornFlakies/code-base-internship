@@ -164,10 +164,6 @@ class ProcessData:
         output_folder_chunks = os.path.join(output_folder, foldername, '')
         HelperFunctions.create_output_folder(output_folder_chunks)
         
-        #foldername = 'slices'
-        #output_folder_slices = os.path.join(output_folder, foldername, '')
-        #HelperFunctions.create_output_folder(output_folder_slices)
-        
         foldername = 'averages'
         output_folder_averages = os.path.join(output_folder, foldername, '')
         HelperFunctions.create_output_folder(output_folder_averages)
@@ -215,45 +211,6 @@ class ProcessData:
         filename = 'chunk'
         np.save(os.path.join(output_folder_chunks, filename), chunk)
 
-        #self.image_size = np.size(np.load(self.image_paths[0]), axis=0)
-        #chunks = self.__generate_chunk_data(chunk_amount, doPad = False)
-        #middle_chunks = [5, 6, 9, 10] # ASSUMING 4X4 CHUNKS DON'T FORGET 
-
-        #start_time_tot = time.time()
-        #window = hann(self.frames) 
-        #for nchunk in middle_chunks:
-        #    # Finding chunk location
-        #    self.nx = chunks.xidx[nchunk % chunks.chunk]
-        #    self.ny = chunks.yidx[nchunk // chunks.chunk]
-        #    
-        #    # Timing run and loading in the chunk as a (frames, px, px) array
-        #    print(f'chunk {nchunk + 1}/{chunks.chunk**2}')
-        #    start_time_chunk = time.time()  
-        #    img_chunk = self.__load_chunk(chunks)
-        #    
-        #    # Computing ffts
-        #    proc_img_chunk = np.zeros((self.frames // 2 + 1, chunks.chunk_length_px, chunks.chunk_length_px))
-        #    for ii in range(np.size(img_chunk, axis=1)):
-        #        for jj in range(np.size(img_chunk, axis=2)):
-        #            proc_img_chunk[:, ii, jj] = HelperFunctions.process_kspace_fft(img_chunk[:, ii, jj], window)
-
-        #    filename = 'dispersion_' + str(nchunk + 1).zfill(self.FILL) + '.npy' 
-        #    file_destination = os.path.join(output_folder_chunks, filename)
-        #    np.save(file_destination, proc_img_chunk)
-        #    print(f'  chunk done in {int(time.time() - start_time_chunk)} seconds ...') 
-        #print('done in %s seconds' % (int(time.time() - start_time_tot)))
-        
-        ## Build slices
-        #print('converting chunks to slices ...')
-        #start_time_tot = time.time()
-        #self.convert_chunks_to_slices(output_folder_chunks, output_folder_slices)
-        #print('done in %s seconds' % (int(time.time() - start_time_tot)))
-
-        ## Build build averages 
-        #print('building the averages ...')
-        #start_time_tot = time.time()
-        #self.build_averages(output_folder_slices, output_folder_averages)
-        #print('done in %s seconds' % (int(time.time() - start_time_tot)))
     
     def compute_spatial_fft(self, output_folder, chunk_amount):
         '''
@@ -279,80 +236,6 @@ class ProcessData:
             if (i % int(self.frames / 10) == 0):
                 HelperFunctions.print(f'  {int(np.ceil(i / self.frames * 100))}% ...', 'o')
     
-    def convert_chunks_to_slices(self, input_folder, output_folder):
-        '''
-        Function used to convert the chunks back to slices again
-        '''
-        HelperFunctions.create_output_folder(output_folder)
-        self.image_paths, _ = HelperFunctions.load_images(input_folder)
-
-        # Get the size of the chunks by loading in a single image
-        sample_img = np.load(self.image_paths[0])
-        chunk_size = sample_img.shape
-        del sample_img
-
-        # Pre-allocated the joined image, and create indices to store the chunks correctly into the slice
-        joined_img = np.zeros((2 * chunk_size[1], 2 * chunk_size[2]))
-        npoints = (np.arange(0, 2 * chunk_size[1], chunk_size[1]), np.arange(0, 2 * chunk_size[2], chunk_size[2])) 
-        xidx, yidx = np.meshgrid(npoints[0], npoints[1])
-        xidx = xidx.flatten()
-        yidx = yidx.flatten()
-        self.frames = np.size(np.load(self.image_paths[0]), axis=0)
-         
-        # Loop over the amount of frames and generate slices
-        for i in range(self.frames):
-            HelperFunctions.print(f'  {int(np.ceil(i / self.frames * 100))}% ...', mode='o')     
-            for j, image in enumerate(self.image_paths):
-                img = np.load(image)
-                img = img[i]
-                joined_img[yidx[j]:(yidx[j] + chunk_size[2]), xidx[j]:(xidx[j] + chunk_size[1])] = img
-                
-            filename = 'disp_' + str(i + 1).zfill(self.FILL) + '.npy'
-            dest = os.path.join(output_folder, filename)
-            np.save(dest, joined_img)
-        
-            if (i % int(self.frames / 10) == 0):
-                HelperFunctions.print(f'  {int(np.ceil(i / self.frames * 100))}% ...', mode='o')    
-
-    def build_averages(self, input_folder, output_folder):
-        '''
-        Function used to load in the slices and get a horizontal sice
-        '''
-        import cv2
-
-        HelperFunctions.create_output_folder(output_folder) 
-        self.image_paths, _ = HelperFunctions.load_images(input_folder)
-
-        sample_img = np.load(self.image_paths[0])
-        axis_size = np.size(sample_img, axis=1) // 2
-        hor_img_slice = np.zeros((len(self.image_paths), axis_size))
-        ver_img_slice = hor_img_slice.copy()
-        pol_img = np.zeros((len(self.image_paths), axis_size))
-        
-        for i, image in enumerate(self.image_paths):
-            # Load image
-            img = np.load(image) 
-            
-            # Get angular average
-            height, width = img.shape[:2]
-            center = (width // 2, height // 2)
-            value = np.sqrt((center[0]**2 + center[1]**2) / 2)
-            transformed_image = cv2.linearPolar(img, center, value, cv2.WARP_FILL_OUTLIERS)
-            pol_img[i] = np.mean(transformed_image[:, ::2], axis=0)
-            
-            # Get kx and ky slice
-            hor_img_slice[i] = img[axis_size, axis_size:]
-            ver_img_slice[i] = img[axis_size:, axis_size]
-            if (i % int(self.frames / 10) == 0):
-                HelperFunctions.print(f'  {int(np.ceil(i / self.frames * 100))}% ...', mode='o')    
-         
-        filename = 'angular_avg.npy'
-        np.save(os.path.join(output_folder, filename), pol_img)
-        filename = 'kx_slice.npy'
-        np.save(os.path.join(output_folder, filename), hor_img_slice)
-        filename = 'ky_slice.npy'
-        np.save(os.path.join(output_folder, filename), ver_img_slice)
-
     def compute_grad(self, output_folder):
         from scipy.ndimage import gaussian_filter
         HelperFunctions.create_output_folder(output_folder)
@@ -374,9 +257,6 @@ class ProcessData:
             np.save(os.path.join(output_folder, filename), grad)
         
         print('wave steepness approx: ' + str(std / ii) + ' cm')
-
-    def compute_conv_factor(self):
-        return None
 
     def plot_power_spectra(self):
         '''
@@ -410,8 +290,7 @@ class ProcessData:
             plt.grid()
         plt.show()
 
-    def plot_welch_spectra(self):
-        
+    def plot_welch_spectra(self):     
         def power_law(A, x, p):
             return A * (x/x[0])**(p)
 
@@ -450,39 +329,91 @@ class ProcessData:
 
         '''
         from numpy.fft import rfftfreq
+
+        def power_law(A, x, p):
+            return A * (x/x[0])**(p)
         
         h0 *= 1E-2             # m
         conver_factor *= 1E-2  # m/px
 
-        kana  = np.linspace(10, 1000, 500)
-        omega = np.sqrt(HelperFunctions.gravcap_dispersion_sq(kana, h0))  
+        labels = ['10mm', '15mm', '20mm', '5mm']
+        markers = ['o', 'D', 'v', '>']
+        
+        plt.figure()
+        plt.title('')
+        plt.grid()
+        plt.xlabel(r'$k\. (rad/m)$')
+        plt.ylabel(r'$E(k)$')
 
-        def power_law(A, x, p):
-            return A * (x/x[0])**(p)
+        # Plot the analytical power laws
+        height = 30000
+        start = 2000
+        finish = 5500
+        Ekana = np.linspace(start, finish, 100)
+        plt.loglog(Ekana, power_law(height, Ekana, -5/2), '--',color='black', label=r"$E_k \sim k^{-5/2}$")
 
-        for image in self.image_paths[:1]:
+        # Plot the analytical power laws
+        height = 520000
+        start = 2000
+        finish = 5500
+        Ekana = np.linspace(start, finish, 100)
+        plt.loglog(Ekana, power_law(height, Ekana, -5/2), '--',color='black')
+
+        # Plot the experimental power law in k-space
+        for i, image in enumerate(self.image_paths[:]):
             img = np.load(image)
-            omegaspace = 2 * np.pi * rfftfreq(np.size(img, axis=0) * 2, d=1/fps)
-            kspace = np.pi * rfftfreq(np.size(img, axis=1) * 2, d=conver_factor) 
-
             E_k = np.sum(img, axis=0) / len(img)
-            height = 140000
-            start = 2760
-            finish = 5500
-            Ekana = np.linspace(start, finish, 100)
+            kspace = np.pi * rfftfreq(np.size(img, axis=1) * 2 + 1, d=conver_factor) 
+            plt.loglog(kspace[1:], E_k**2, marker=markers[i], markersize=4, label=f'A = {labels[i]}')
+        plt.legend()
+
+        # Plot the analytical power laws
+        plt.figure()
+        plt.title('')
+        plt.grid() 
+        height = 7.2E8
+        start = 65
+        finish = 250
+        Eomegaana = np.linspace(start, finish, 100)
+        plt.loglog(Eomegaana, power_law(height, Eomegaana, -4), '--',color='black')
+        
+        # Plot the analytical power laws
+        height = 3.7E7
+        start = 66
+        finish = 120
+        Eomegaana = np.linspace(start, finish, 100)
+        plt.loglog(Eomegaana, power_law(height, Eomegaana, -4), '--',color='black')
+        
+        # Plot the experimental power law in omega-space
+        for i, image in enumerate(self.image_paths[:]):
+            img = np.load(image)
+            E_omega = np.sum(img, axis=1) / len(img[0, :])
+            omegaspace = 2 * np.pi * rfftfreq(np.size(img, axis=0) * 2 + 1, d=1/fps)
+            plt.loglog(omegaspace[2:], E_omega[1:]**2, marker=markers[i], markersize=4, label=f'A = {labels[i]}')
+        plt.axvline(x=int(4*2*np.pi), color='black', linestyle='--')
+        plt.legend()
+        
+        # Plot the dispersion relation with the gravity capillary dispersion relation
+        kana  = np.linspace(0, 1200, 500)
+        omega = np.sqrt(HelperFunctions.gravcap_dispersion_sq(kana, h0))  
+       
+        for i, image in enumerate(self.image_paths):
+            print(image)
+            img = np.load(image)
+            omegaspace = 2 * np.pi * rfftfreq(np.size(img, axis=0) * 2 + 1, d=1/fps)
+            #kspace = 2 * np.pi * rfftfreq(1024 // 2 + 1, d=conver_factor)
+            kspace = np.pi * rfftfreq(np.size(img, axis=1) * 2 + 1, d=conver_factor)  
 
             plt.figure()
-            plt.loglog(kspace[1:], E_k**2, '.-')
-            plt.loglog(Ekana, power_law(height, Ekana, -5/2))
-            plt.grid()
-       
-            plt.figure()
-            plt.plot(omega, kana, '--', color='black', label='analytical dispersion') 
-            plt.pcolor(omegaspace[:], kspace[1:], np.log(img[:, 1:].T), vmin=6, vmax=14) 
+            plt.plot(omega, kana, '--', linewidth=1, color='black', label=r'Gravity Capillary Disp. Relation') 
+            plt.pcolor(omegaspace[1:], kspace[1:151], np.log(img[1:, 1:].T), vmin=5, vmax=15) 
+            #plt.xlim([0, 300])
+            #plt.ylim([0, 1500])
             plt.xlabel('$\omega (rad/s)$')
             plt.ylabel('$k (rad/m)$')
             plt.legend()
             plt.colorbar()
+        plt.legend()
         plt.show() 
 
     def plot_slices(self):
@@ -496,7 +427,7 @@ class ProcessData:
         height  = np.zeros((self.frames, len(npoints), len(npoints)))
         spectra = np.zeros((self.frames // 2 + 1, len(npoints), len(npoints)))
         mean_intensity = np.zeros(self.frames)
-        for i, image in enumerate(self.image_paths):
+        for i, image in enumerate(self.image_paths[:300]):
             img = np.load(image)
             height[i] = img[xidx, yidx]
             mean_intensity[i] = np.mean(img)
@@ -518,7 +449,7 @@ class ProcessData:
         
         nx1, nx2, ny1, ny2 = crop
 
-        for i, image in enumerate(self.image_paths):
+        for i, image in enumerate(self.image_paths[:]):
             img = sk.io.imread(image)[nx1:nx2, ny1:ny2]
             filename = self.image_names[i].split('.tif')[0] + '.npy'
             file_path = os.path.join(output_folder, filename)
@@ -535,12 +466,6 @@ class ProcessData:
             img = HelperFunctions.square_img(img)
             file_path = os.path.join(output_folder, self.image_names[i])
             np.save(file_path, img)
-
-    def segment_images(self, input_image, background_image, output_folder):
-        '''
-        Function used to segment particles from the 
-        '''
-        return None
 
     def __generate_chunk_data(self, chunk_amount, doPad = True):
         '''
