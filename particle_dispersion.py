@@ -21,11 +21,10 @@ class ParticleDispersion:
             self.propagate_particles = self.doNone
             _, self.N, _ = N.shape 
             self.Npositions = N
-            
+
         # Define particle indices
         self.xidx, self.yidx = np.meshgrid(np.arange(0, self.N), np.arange(0, self.N))
-  
-    # Random function to not propagate the particles if measurements are provided
+   
     def doNone(self, i):
         return None
 
@@ -77,7 +76,7 @@ class ParticleDispersion:
         
         #self.Npositions[i, np.argwhere(np.abs(self.Npositions[i]) > self.box_size)] //= self.box_size
     
-    # Compute the pair distance per frame
+    # Compute the mean particle pair distance per frame
     def comp_pair_distance(self, frame):
         # Get interparticle distances
         dij = self.get_interparticle_distances(self.Npositions[frame])
@@ -94,13 +93,13 @@ class ParticleDispersion:
     def run(self):
         self.get_particle_pairs()
         
-        for i in tqdm(range(self.frames)):
+        for i in tqdm(range(1, self.frames)):
             self.propagate_particles(i)
             self.comp_pair_distance(i)
+        
+        for i in range(self.deltaR.shape[0]):
+            self.deltaR[:, i] /= self.deltaR[:, 0]
 
-        for i in range(1, self.deltaR.shape[1]):
-            self.deltaR[:, i] -= self.deltaR[:, 0]
-   
     # Getter function for the computed data
     def get_data(self):
         return self.linked_list, self.Npositions, self.deltaR

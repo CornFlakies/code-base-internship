@@ -23,7 +23,7 @@ current_image_index = 0
 # Create a function to update the displayed image
 def update_image(event):
     global current_image_index
-    current_image_index = (current_image_index + 50) % len(image_paths)
+    current_image_index = (current_image_index + 100) % len(image_paths)
     img = sk.io.imread(image_paths[current_image_index])
     ax.cla()
     ax.imshow(img)

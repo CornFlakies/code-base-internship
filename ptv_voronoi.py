@@ -1,5 +1,6 @@
 from helper_functions import HelperFunctions as hp
 from scipy.spatial import ConvexHull, Voronoi
+from scipy.signal import savgol_filter 
 from scipy.special import gamma
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -8,6 +9,34 @@ import numpy as np
 import argparse
 import os
 import re
+
+# Function for lightening colors of the lines for the plots
+def lighten_color(color, amount=0.5):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    import matplotlib.colors as mc
+    import colorsys
+    try:
+        c = mc.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+
+# Gamma distribution with c parameter
+def rpp_c(x, a, b, c):
+    return c*(b**(a/c))/gamma(a/c)*(x**(a-1))*np.exp(-b*(x**c)) 
+
+# Gamma distribution
+def rpp(x, a, b):
+    return (b**a) / gamma(a) * (x**(a - 1)) * np.exp(-b * x)
 
 # Load in image paths
 argparser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -27,7 +56,7 @@ area_count = []
 particle_count = []
 
 maxDF = 700
-minDF = 100
+minDF = 200
 
 # Check if directory contains precalculated npy files, we can skip the computations then
 if all(file in "".join(directory) for file in files_to_check):
@@ -146,6 +175,10 @@ for folder in sorted(campaign_folders, key = lambda folder: re.search(r'\d+', fo
         file_destination = os.path.join(args.input_folder, folder.split(os.sep)[-1] + '_' + filename)
         np.save(file_destination, particles_per_campaign)  
 
+
+# -----------------------------------------------------------------------------------------
+# Plot the average pdfs of all voronoi diagrams for all forcing strenghts
+# -----------------------------------------------------------------------------------------
 # Define total area of the box
 Lx = maxDF - minDF
 Ly = Lx
@@ -156,7 +189,6 @@ Alist = ['A5', 'A10', 'A15', 'A20']
 bins = np.geomspace(1e-2, 4, 50)
 bins_c = (bins[:-1] + bins[1:]) / 2
 
-# Plot the PDF of the normalized volume in log log space, close to the origin
 fig, ax = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
 ii = 0
 for area, particles in zip(all_areas, particle_count):  
@@ -166,7 +198,7 @@ for area, particles in zip(all_areas, particle_count):
     for i in range(len(indices) - 1):
         A_avg = A_tot / particles[i]
         all_normalized_areas.append(area[indices[i]:indices[i + 1]] / A_avg)
-    
+        
     x = np.logspace(np.log10(bins_c[0]), np.log10(bins_c[-1]), 1000)
     
     all_normalized_areas = np.concatenate(all_normalized_areas).ravel()
@@ -180,7 +212,7 @@ for area, particles in zip(all_areas, particle_count):
     b = 3.04011
     c = 1.078
     rpp = c*(b**(a/c))/gamma(a/c)*(x**(a-1))*np.exp(-b*(x**c))
-    
+   
     PDF, bins = np.histogram(all_normalized_areas, bins=bins, density=True)    
     idx = np.unravel_index(ii, (2, 2))
     ax[idx].loglog(bins_c, PDF, 'o', color='blue', label='exp. data')
@@ -191,6 +223,9 @@ for area, particles in zip(all_areas, particle_count):
     ax[idx].set_title(f'{Alist[ii]}')
     ii += 1
 
+# -----------------------------------------------------------------------------------------
+# Plot the average pdfs of all voronoi diagrams for all forcing strenghts on a longer scale
+# -----------------------------------------------------------------------------------------
 #a, b = 3.45, 3.45
 #rpp = (b**a) / gamma(a) * (x**(a-1)) * np.exp(-b * x)
 bins   = np.geomspace(1e-2, 10, 50)
@@ -202,7 +237,9 @@ x      = np.logspace(np.log10(bins_c[0]), np.log10(bins_c[-1]), 100)
 frames = 3072
 all_stds = []
 all_means = []
+all_partitioned_areas = []
 
+# Create figure 
 fig, axes = plt.subplots(nrows=2, ncols=2, sharey=True, sharex=True)
 ii = 0
 for area, Narea, particles in zip(all_areas, area_count, particle_count): 
@@ -211,6 +248,8 @@ for area, Narea, particles in zip(all_areas, area_count, particle_count):
     stds_per_forcing = []
     means_per_campaign = []
     means_per_forcing = []
+    areas_per_campaign = []
+    areas_per_forcing = []
     all_normalized_areas = []
     indices = np.concatenate((np.array([0]), np.cumsum(Narea)))
     for i in range(len(indices) - 1):
@@ -219,12 +258,16 @@ for area, Narea, particles in zip(all_areas, area_count, particle_count):
         all_normalized_areas.append(normalized_area)
         stds_per_campaign.append(np.std(normalized_area))
         means_per_campaign.append(np.mean(normalized_area))
+        areas_per_campaign.append(normalized_area)
         if (((i % (frames - 1)) == 0) & (i != 0)):
             stds_per_forcing.append(stds_per_campaign)
             stds_per_campaign = []
             means_per_forcing.append(means_per_campaign)
             means_per_campaign = []
-     
+            areas_per_forcing.append(areas_per_campaign)
+            areas_per_campaign = []
+   
+    all_partitioned_areas.append(areas_per_forcing)
     all_stds.append(stds_per_forcing)
     all_means.append(means_per_forcing)
     all_normalized_areas = np.concatenate(all_normalized_areas).ravel()
@@ -237,13 +280,14 @@ for area, Narea, particles in zip(all_areas, area_count, particle_count):
     std  = np.std(all_normalized_areas)
     a = mean**2 / std**2 
     b = mean / std**2
-    rpp = (b**a) / gamma(a) * (x**(a - 1)) * np.exp(-b * x)
+    #rpp = rpp(x, a, b) 
     
     a = 3.385 
     b = 3.04011
     c = 1.078
-    rpp = c*(b**(a/c))/gamma(a/c)*(x**(a-1))*np.exp(-b*(x**c))
-    
+    rpp = rpp_c(x, a, b, c) 
+   
+
     ax.semilogy(bins[:-1], PDF, 'x', color='blue')
     ax.semilogy(x, rpp, '--', color='black')
     ax.set_ylim([1e-5, 1e1])
@@ -253,36 +297,57 @@ for area, Narea, particles in zip(all_areas, area_count, particle_count):
     ax.grid()
     ii += 1
 
-def moving_average(a, n=3):
-    ret = np.cumsum(a, dtype=float)
-    ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
-
-#%% Plot of the change in a over the measurement time
+#%% Plot of the change of the standard deviation the measurement time
 # Plot the standard deviation over time
 n = 50
-interval = 200
-ii = 0
-fig, ax = plt.subplots(nrows=2, ncols=2)
-for mean, std in zip(all_means, all_stds):
-    for m, s in zip(mean, std):
+interval = 500
+kk = 0
+bins = np.geomspace(1e-2, 15, n)
+bins_c = (bins[1:] + bins[:-1]) / 2
+indices = np.arange(0, frames)[::interval]
+amps = [5, 10, 15, 20]
+
+fps = 60
+conv_factor = 5 / 4
+
+fig1, ax1 = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
+fig2, ax2 = plt.subplots()
+w = np.linspace(0.5, 1, len(indices))
+
+# Every forcing strength
+for mean, std, area in zip(all_means, all_stds, all_partitioned_areas):  
+    # Every campaign
+    all_pdfs = np.zeros((len(area), len(indices), len(bins_c)))
+    for m, s, ar in zip(mean, std, area):
         a_means = []
         a_stds = []
         prev = 0
-        indices = np.arange(0, frames)[::interval]
         a = np.array(m)**2 / np.array(s)**2
-        for idx in indices:
+        for ii, idx in enumerate(indices):
             a_means.append(np.mean(s[prev:idx]))
             a_stds.append(np.std(s[prev:idx]))
+            for jj in range(prev, idx):
+                all_pdfs[kk, ii] += np.histogram(ar[jj], bins=bins, density=True)[0]
             prev = idx
-    idx = np.unravel_index(ii, (2, 2))
-    ax[idx].errorbar(np.arange(0, len(a_means)) * interval, a_means, yerr=a_stds/np.sqrt(len(a_stds)), color='red', ls='--', capsize=5, capthick=1, ecolor='black')
-    ax[idx].grid()
-    ax[idx].set_title(f'{Alist[ii]}')
-    ax[idx].set_xlabel(r'$frame$')
-    ax[idx].set_ylabel(r'$\langle \sigma \rangle$')
-    ii += 1
 
+    axis_idx = np.unravel_index(kk, (2, 2))
+    ll = 0
+    means = np.zeros(all_pdfs.shape[1])
+    for pdf in np.mean(all_pdfs, axis=0):
+        pdf = savgol_filter(pdf, 3, 1) 
+        idx_max = np.argmax(pdf)
+        means[ll] = pdf[idx_max]
+        ax1[axis_idx].loglog(bins_c, pdf / interval, '.-', color=lighten_color('b', w[ll]))
+        ax1[axis_idx].loglog(x, rpp, '--', color='black')
+        ax1[axis_idx].loglog(bins[idx_max], pdf[idx_max] / interval, 'o', color='black')
+        ll += 1
+    ax1[axis_idx].grid()
+    ax1[axis_idx].legend()
+    ax1[axis_idx].set_ylim([1e-3, 1e1])
+    xx = indices
+    ax2.plot(xx, means, 'o--', color=lighten_color('blue', w[kk]))
+    kk += 1
+ax2.grid()
 # Plot the amount of average number of particles/areas in the system
 fig, ax = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
 print(area_count)
@@ -308,3 +373,4 @@ for a in area_count:
     ii += 1
 
 plt.show()
+

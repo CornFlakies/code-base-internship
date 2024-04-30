@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 def lists_are_equal(list1, list2):
     if (len(list1) != len(list2)):
@@ -10,7 +11,10 @@ def lists_are_equal(list1, list2):
         return True
 
 
-def get_trajectories(df_input, only_del_nans = False):
+def get_trajectories(df_input,
+                     minSize,
+                     maxSize, 
+                     only_del_nans = False):
     """
     Input: pandas df_file computed by the ptv code
     Output: xP, yP arrays containing the positions in time row-wise and the different particles column wise.
@@ -30,6 +34,15 @@ def get_trajectories(df_input, only_del_nans = False):
         y = df.iloc[:, 2*n+1].values.astype(float)
         xP[n] = x
         yP[n] = y
+        idx = []
+        idx.append(np.argwhere(xP[n] < minSize))
+        idx.append(np.argwhere(yP[n] < minSize))
+        idx.append(np.argwhere(xP[n] > maxSize))
+        idx.append(np.argwhere(yP[n] > maxSize))
+        if idx:
+            idx = np.concatenate(idx).ravel()
+            xP[n, idx] = np.nan 
+            yP[n, idx] = np.nan
 
     # Divide data into tranches of non-changing particle count in the trajectory data
     bins = 0
@@ -68,7 +81,7 @@ if __name__ == "__main__":
     argparser.add_argument('input_file_df', type=str)
     args = argparser.parse_args()
 
-    xP, yP = get_trajectories(args.input_file_df)
+    xP, yP = get_trajectories(args.input_file_df, minSize=0, maxSize=1024)
 
     print(xP.shape)
     print(yP.shape)

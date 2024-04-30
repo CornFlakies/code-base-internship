@@ -13,7 +13,7 @@ file_paths, _ = hp.load_images(args.input_dir, header='out')
 
 conv_fact = 5/4 #mm px**-1
 fps = 60
-tol = [30]
+tol = [200]
 
 # Hist data
 tot_bins = 100
@@ -24,36 +24,48 @@ fig, ax = plt.subplots(nrows=1, ncols=2)
 for ii, t in enumerate(tol):
     all_positions = []
     all_deltaR = []
-    for file in (np.delete(file_paths, 1)):
-        xP, yP = get_traj.get_trajectories(file)
-        positions = np.array([xP, yP]).T * conv_fact
+    for file in file_paths:
+        xP, yP = get_traj.get_trajectories(file,
+                                       minSize=100,
+                                       maxSize=800)
+        positions = np.array([xP, yP]).T
         image_size = 1024
         frames = positions.shape[0]
         dt = 1 
         sigma = 1.05 
         tol = t
         
-        part_disp = ParticleDispersion(N=positions, box_size=image_size, frames=frames, dt=1, sigma=1.05, tol=tol, preCalcData=True)
+        part_disp = ParticleDispersion(N=positions, 
+                                       box_size=image_size, 
+                                       frames=frames, 
+                                       dt=1, 
+                                       sigma=1.05, 
+                                       tol=tol, 
+                                       preCalcData=True)
         part_disp.run()
         
         linked_list, _, deltaR = part_disp.get_data()
-        
+      
+#        plt.figure()
+#        for x, y in zip(xP, yP):
+#            plt.plot(x, y, '.-')
+#
+#        plt.figure()
+#        for dr in deltaR:
+#            plt.loglog(dr**2, '.-')
+#        plt.grid()
+
         all_positions.append(positions)
         all_deltaR.append(deltaR) 
 
     minLen = frames
-    minLenPos = frames
     for nn, dr in enumerate(all_deltaR):
         if (dr.shape[1] < minLen):
             minLen = dr.shape[1]
 
-    for mm, dr in enumerate(all_positions):
-        if (dr.shape[0] < minLenPos):
-            minLenPos = dr.shape[0]
-
     all_drs = np.zeros((nn + 1, minLen - 1))
     all_drs_hists = []
-    all_dpos = np.zeros((mm + 1, minLenPos - 1))
+    all_dpos = np.zeros((nn + 1, minLen - 1))
     all_dpos_hists = []
     pair_count = []
     for pos, dr in zip(all_positions, all_deltaR): 
