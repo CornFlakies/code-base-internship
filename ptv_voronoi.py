@@ -10,26 +10,6 @@ import argparse
 import os
 import re
 
-# Function for lightening colors of the lines for the plots
-def lighten_color(color, amount=0.5):
-    """
-    Lightens the given color by multiplying (1-luminosity) by the given amount.
-    Input can be matplotlib color string, hex string, or RGB tuple.
-
-    Examples:
-    >> lighten_color('g', 0.3)
-    >> lighten_color('#F034A3', 0.6)
-    >> lighten_color((.3,.55,.1), 0.5)
-    """
-    import matplotlib.colors as mc
-    import colorsys
-    try:
-        c = mc.cnames[color]
-    except:
-        c = color
-    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
-    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
-
 # Gamma distribution with c parameter
 def rpp_c(x, a, b, c):
     return c*(b**(a/c))/gamma(a/c)*(x**(a-1))*np.exp(-b*(x**c)) 
@@ -315,7 +295,11 @@ fig2, ax2 = plt.subplots()
 w = np.linspace(0.5, 1, len(indices))
 
 # Every forcing strength
+ii = 0
 for mean, std, area in zip(all_means, all_stds, all_partitioned_areas):  
+    all_a_means = np.zeros(len(indices))
+    all_a_stds = np.zeros(len(indices))
+    
     # Every campaign
     all_pdfs = np.zeros((len(area), len(indices), len(bins_c)))
     for m, s, ar in zip(mean, std, area):
@@ -329,6 +313,17 @@ for mean, std, area in zip(all_means, all_stds, all_partitioned_areas):
             for jj in range(prev, idx):
                 all_pdfs[kk, ii] += np.histogram(ar[jj], bins=bins, density=True)[0]
             prev = idx
+        
+
+    idx = np.unravel_index(ii, (2, 2))
+    ax[idx].errorbar(np.arange(0, len(a_means)) * interval, a_means, yerr=a_stds/np.sqrt(len(a_stds)), color='green', ls='--', capsize=5, capthick=1, ecolor='black')
+    #ax[idx].plot(a, color='red', ls='--')
+    ax[idx].grid()
+    #ax[idx].set_ylim([0, 60])
+    ax[idx].set_title(f'{Alist[ii]}')
+    ax[idx].set_xlabel(r'$frame$')
+    ax[idx].set_ylabel(r'$\langle std_{s} \rangle$')
+    ii += 1
 
     axis_idx = np.unravel_index(kk, (2, 2))
     ll = 0
@@ -348,6 +343,7 @@ for mean, std, area in zip(all_means, all_stds, all_partitioned_areas):
     ax2.plot(xx, means, 'o--', color=lighten_color('blue', w[kk]))
     kk += 1
 ax2.grid()
+
 # Plot the amount of average number of particles/areas in the system
 fig, ax = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
 print(area_count)
