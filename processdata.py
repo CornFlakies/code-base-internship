@@ -4,12 +4,16 @@ import time
 import numpy as np
 import skimage as sk
 from typing import List
-from matplotlib import axis
+import matplotlib
 from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt 
 from dataclasses import dataclass
 from scipy.signal.windows import hann
 from helper_functions import HelperFunctions
+
+font = {'size'   : 12}
+
+matplotlib.rc('font', **font)
 
 @dataclass
 class Chunks:
@@ -346,18 +350,18 @@ class ProcessData:
         plt.ylabel(r'$E(k)$')
 
         # Plot the analytical power laws
-        height = 30000
-        start = 2000
-        finish = 5500
+        height = 3.6E7
+        start = 730
+        finish = 5000
         Ekana = np.linspace(start, finish, 100)
         plt.loglog(Ekana, power_law(height, Ekana, -5/2), '--',color='black', label=r"$E_k \sim k^{-5/2}$")
 
-        # Plot the analytical power laws
-        height = 520000
-        start = 2000
-        finish = 5500
-        Ekana = np.linspace(start, finish, 100)
-        plt.loglog(Ekana, power_law(height, Ekana, -5/2), '--',color='black')
+        ## Plot the analytical power laws
+        #height = 520000
+        #start = 2000
+        #finish = 5500
+        #Ekana = np.linspace(start, finish, 100)
+        #plt.loglog(Ekana, power_law(height, Ekana, -5/2), '--',color='black')
 
         # Plot the experimental power law in k-space
         for i, image in enumerate(self.image_paths[:]):
@@ -366,23 +370,24 @@ class ProcessData:
             kspace = np.pi * rfftfreq(np.size(img, axis=1) * 2 + 1, d=conver_factor) 
             plt.loglog(kspace[1:], E_k**2, marker=markers[i], markersize=4, label=f'A = {labels[i]}')
         plt.legend()
+        plt.xlabel(r'$k\. (rad/s)$')
+        plt.ylabel(r'$PSD(k)$')
 
         # Plot the analytical power laws
         plt.figure()
-        plt.title('')
         plt.grid() 
         height = 7.2E8
         start = 65
-        finish = 250
+        finish = 220
         Eomegaana = np.linspace(start, finish, 100)
-        plt.loglog(Eomegaana, power_law(height, Eomegaana, -4), '--',color='black')
-        
+        plt.loglog(Eomegaana, power_law(height, Eomegaana, -4), '--',color='black', label=r'$\omega\sim -4$')
+
         # Plot the analytical power laws
-        height = 3.7E7
-        start = 66
-        finish = 120
-        Eomegaana = np.linspace(start, finish, 100)
-        plt.loglog(Eomegaana, power_law(height, Eomegaana, -4), '--',color='black')
+        #height = 3.7E7
+        #start = 66
+        #finish = 120
+        #Eomegaana = np.linspace(start, finish, 100)
+        #plt.loglog(Eomegaana, power_law(height, Eomegaana, -4), '--',color='black', label=r'$\omega\sim -4$')
         
         # Plot the experimental power law in omega-space
         for i, image in enumerate(self.image_paths[:]):
@@ -392,6 +397,8 @@ class ProcessData:
             plt.loglog(omegaspace[2:], E_omega[1:]**2, marker=markers[i], markersize=4, label=f'A = {labels[i]}')
         plt.axvline(x=int(4*2*np.pi), color='black', linestyle='--')
         plt.legend()
+        plt.xlabel(r'$\omega\. (rad/s)$')
+        plt.ylabel(r'$PSD(\omega)$')
         
         # Plot the dispersion relation with the gravity capillary dispersion relation
         kana  = np.linspace(0, 1200, 500)
@@ -406,13 +413,14 @@ class ProcessData:
 
             plt.figure()
             plt.plot(omega, kana, '--', linewidth=1, color='black', label=r'Gravity Capillary Disp. Relation') 
-            plt.pcolor(omegaspace[1:], kspace[1:151], np.log(img[1:, 1:].T), vmin=5, vmax=15) 
-            #plt.xlim([0, 300])
-            #plt.ylim([0, 1500])
+            plt.pcolor(omegaspace[1:], kspace[1:], np.log(img[1:, 1:].T), vmin=5, vmax=15) 
+            plt.xlim([0, 300])
+            plt.ylim([0, 1500])
             plt.xlabel('$\omega (rad/s)$')
             plt.ylabel('$k (rad/m)$')
             plt.legend()
-            plt.colorbar()
+            cbar = plt.colorbar()
+            cbar.ax.set_ylabel(r'$PSD_{\omega, k} (arb. units)$')
         plt.legend()
         plt.show() 
 

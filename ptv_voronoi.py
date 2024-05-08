@@ -3,12 +3,16 @@ from scipy.spatial import ConvexHull, Voronoi
 from scipy.signal import savgol_filter 
 from scipy.special import gamma
 import matplotlib.pyplot as plt
+import matplotlib
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import argparse
 import os
 import re
+
+font = {'size'   : 10}
+matplotlib.rc('font', **font)
 
 # Gamma distribution with c parameter
 def rpp_c(x, a, b, c):
@@ -169,7 +173,7 @@ Alist = ['A5', 'A10', 'A15', 'A20']
 bins = np.geomspace(1e-2, 4, 50)
 bins_c = (bins[:-1] + bins[1:]) / 2
 
-fig, ax = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
+fig, ax = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(7.5, 7.5))
 ii = 0
 for area, particles in zip(all_areas, particle_count):  
     # Get the normalized areas 
@@ -198,10 +202,12 @@ for area, particles in zip(all_areas, particle_count):
     ax[idx].loglog(bins_c, PDF, 'o', color='blue', label='exp. data')
     ax[idx].loglog(x, rpp, '--', color='black', label='RPP')
     ax[idx].set_ylim([1e-4, 1e1])
-    ax[idx].legend()
     ax[idx].grid()
     ax[idx].set_title(f'{Alist[ii]}')
+    ax[idx].set_xlabel(r'$S / \langle S \rangle$')
+    ax[idx].set_ylabel(r'$PDF$')
     ii += 1
+ax[idx].legend()
 
 # -----------------------------------------------------------------------------------------
 # Plot the average pdfs of all voronoi diagrams for all forcing strenghts on a longer scale
@@ -220,7 +226,7 @@ all_means = []
 all_partitioned_areas = []
 
 # Create figure 
-fig, axes = plt.subplots(nrows=2, ncols=2, sharey=True, sharex=True)
+fig, axes = plt.subplots(nrows=2, ncols=2, sharey=True, sharex=True, figsize=(7.5, 7.5))
 ii = 0
 for area, Narea, particles in zip(all_areas, area_count, particle_count): 
     # Get the normalized areas 
@@ -280,7 +286,7 @@ for area, Narea, particles in zip(all_areas, area_count, particle_count):
 #%% Plot of the change of the standard deviation the measurement time
 # Plot the standard deviation over time
 n = 50
-interval = 500
+interval = 750
 kk = 0
 bins = np.geomspace(1e-2, 15, n)
 bins_c = (bins[1:] + bins[:-1]) / 2
@@ -290,8 +296,8 @@ amps = [5, 10, 15, 20]
 fps = 60
 conv_factor = 5 / 4
 
-fig1, ax1 = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
-fig2, ax2 = plt.subplots()
+fig1, ax1 = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(8, 7.5))
+fig2, ax2 = plt.subplots(figsize=(8, 7.5))
 w = np.linspace(0.5, 1, len(indices))
 
 # Every forcing strength
@@ -315,15 +321,15 @@ for mean, std, area in zip(all_means, all_stds, all_partitioned_areas):
             prev = idx
         
 
-    idx = np.unravel_index(ii, (2, 2))
-    ax[idx].errorbar(np.arange(0, len(a_means)) * interval, a_means, yerr=a_stds/np.sqrt(len(a_stds)), color='green', ls='--', capsize=5, capthick=1, ecolor='black')
-    #ax[idx].plot(a, color='red', ls='--')
-    ax[idx].grid()
-    #ax[idx].set_ylim([0, 60])
-    ax[idx].set_title(f'{Alist[ii]}')
-    ax[idx].set_xlabel(r'$frame$')
-    ax[idx].set_ylabel(r'$\langle std_{s} \rangle$')
-    ii += 1
+    #  idx = np.unravel_index(ii, (2, 2))
+    #  ax[idx].errorbar(np.arange(0, len(a_means)) * interval, a_means, yerr=a_stds/np.sqrt(len(a_stds)), color='green', ls='--', capsize=5, capthick=1, ecolor='black')
+    #  #ax[idx].plot(a, color='red', ls='--')
+    #  ax[idx].grid()
+    #  #ax[idx].set_ylim([0, 60])
+    #  ax[idx].set_title(f'{Alist[ii]}')
+    #  ax[idx].set_xlabel(r'$frame$')
+    #  ax[idx].set_ylabel(r'$\langle std_{s} \rangle$')
+    #  ii += 1
 
     axis_idx = np.unravel_index(kk, (2, 2))
     ll = 0
@@ -332,20 +338,25 @@ for mean, std, area in zip(all_means, all_stds, all_partitioned_areas):
         pdf = savgol_filter(pdf, 3, 1) 
         idx_max = np.argmax(pdf)
         means[ll] = pdf[idx_max]
-        ax1[axis_idx].loglog(bins_c, pdf / interval, '.-', color=lighten_color('b', w[ll]))
+        ax1[axis_idx].loglog(bins_c, pdf / interval, '.-', color=hp.lighten_color('b', w[ll]))
         ax1[axis_idx].loglog(x, rpp, '--', color='black')
         ax1[axis_idx].loglog(bins[idx_max], pdf[idx_max] / interval, 'o', color='black')
         ll += 1
     ax1[axis_idx].grid()
-    ax1[axis_idx].legend()
+    ax1[axis_idx].set_xlabel(r'$S / \langle S \rangle$')
+    ax1[axis_idx].set_ylabel(r'$PDF$')
+    ax1[axis_idx].set_title(f'{Alist[kk]}')
     ax1[axis_idx].set_ylim([1e-3, 1e1])
     xx = indices
-    ax2.plot(xx, means, 'o--', color=lighten_color('blue', w[kk]))
+    ax2.plot(xx, means, 'o--', color=hp.lighten_color('blue', w[kk]), label=f'{Alist[kk]}')
+    ax2.set_xlabel(r'$N_{frame}$')
+    ax2.set_ylabel(r'$PDF_{max}$')
     kk += 1
+ax2.legend()
 ax2.grid()
 
 # Plot the amount of average number of particles/areas in the system
-fig, ax = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
+fig, ax = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(7.5, 7.5))
 print(area_count)
 ii = 0
 for a in area_count:

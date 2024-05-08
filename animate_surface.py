@@ -21,6 +21,7 @@ if __name__ == '__main__':
 
     image_paths, _ = hp.load_images(args.input_folder)
     padding = 5 #px
+    conv_factor = 0.027 #cm px**-1
 
     # Frame data
     max_frame = 300
@@ -38,7 +39,7 @@ if __name__ == '__main__':
     # Load in first image
     img = np.load(image_paths[0])[padding:-padding, padding:-padding]
     length = np.size(img, axis=0)
-    pix = np.arange(0, length, 1)
+    pix = np.arange(0, length, 1) * conv_factor
     x, y = np.meshgrid(pix, pix)
 
     # Create first surface plot
@@ -46,8 +47,8 @@ if __name__ == '__main__':
     ax = fig.add_subplot(111, projection='3d')
     plot = [ax.plot_surface(x, y, img - np.mean(img), color='0.75', rstride=1, cstride=1, cmap='magma')]
     ax.set_zlim([-.75, .75])
-    ax.set_xlabel('length (px)')
-    ax.set_ylabel('width (px)')
+    ax.set_xlabel('length (cm)')
+    ax.set_ylabel('width (cm)')
     ax.set_zlabel('$h_0$ (cm)')
 
     print('running animation ...')

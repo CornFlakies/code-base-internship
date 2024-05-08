@@ -6,9 +6,7 @@ import matplotlib.pyplot as plt
 from pair_disp_v2 import ParticleDispersion
 from helper_functions import HelperFunctions as hp
 
-font = {'family' : 'normal',
-        'size'   : 10}
-
+font = {'size'   : 10}
 matplotlib.rc('font', **font)
 
 # Load in image paths
@@ -16,6 +14,8 @@ argparser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHel
 argparser.add_argument('input_dir', type=str)
 args = argparser.parse_args()
 file_paths, _ = hp.load_images(args.input_dir, header='out')
+
+campaign_folders = hp.load_folders(args.input_folder)
 
 # Experimental parameters
 conv_fact = 0.8 #mm px**-1
@@ -37,8 +37,8 @@ grad = np.linspace(0.75, 1, 4)
 color = ['blue', 'red', 'green', 'orange']
 
 #fig, ax = plt.subplots(nrows=1, ncols=2)
-fig2, ax2 = plt.subplots(figsize=(7.5, 7.5))
-fig3, ax3 = plt.subplots(figsize=(7.5, 7.5))
+fig2, ax2 = plt.subplots(figsize=(8, 7.5))
+fig3, ax3 = plt.subplots(figsize=(8, 7.5))
 for ii, t in enumerate(tol):
     all_deltaR_means = np.ones((len(file_paths), 3072)) * np.nan
     all_positions_means = all_deltaR_means.copy()
@@ -100,8 +100,8 @@ for ii, t in enumerate(tol):
 def power_law(A, x, p):
     return A * (x/x[0])**(p)
 
-ax2.loglog(time[1:3], power_law(1, time[1:3], 2), '-.', color='black', label=r'$t\sim 2$')
-ax2.loglog(time[35:150], power_law(50, time[35:150], 1.5), '--', color='black', label=r'$t\sim 1.5$')
+ax2.loglog(time[1:3], power_law(10, time[1:3], 2), '-.', color='black', label=r'$t\sim 2$')
+ax2.loglog(time[35:150], power_law(210, time[35:150], 1.5), '--', color='black', label=r'$t\sim 1.5$')
 ax2.set_xlabel(r'$t\.\. [s]$', fontsize=12)
 ax2.set_ylabel(r'$\langle \delta r^2 \rangle\. [mm^2]$', fontsize=12)
 ax2.grid()
